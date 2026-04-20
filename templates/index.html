@@ -1,0 +1,1326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gold & Silver Forecast</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+
+:root{
+  --gold:#D4A843;
+  --gold2:#F0C96A;
+  --gold3:#8B6914;
+  --silver:#A8B4BF;
+  --silver2:#D0D8DF;
+  --silver3:#5A6470;
+  --crisis:#E05252;
+  --normal:#3DAD7A;
+  --mixed:#8B6FD4;
+  --bg:#0D0E0F;
+  --bg2:#161718;
+  --bg3:#1E2022;
+  --surface:#252729;
+  --border:rgba(255,255,255,0.07);
+  --border2:rgba(255,255,255,0.13);
+  --text:#F2F0EC;
+  --text2:#9A9890;
+  --text3:#5A5855;
+}
+
+body{
+  font-family:'Inter',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+#particles{
+  position:fixed;top:0;left:0;width:100%;height:100%;
+  pointer-events:none;z-index:0;opacity:.4
+}
+
+#landing{
+  position:fixed;inset:0;z-index:100;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  background:var(--bg);
+  transition:opacity .8s ease, transform .8s ease;
+}
+#landing.hidden{opacity:0;transform:translateY(-40px);pointer-events:none}
+
+.landing-glow{
+  position:absolute;
+  width:600px;height:600px;
+  background:radial-gradient(circle, rgba(212,168,67,.12) 0%, transparent 65%);
+  top:50%;left:50%;transform:translate(-50%,-55%);
+  pointer-events:none;
+  animation:breathe 4s ease-in-out infinite;
+}
+@keyframes breathe{
+  0%,100%{opacity:.6;transform:translate(-50%,-55%) scale(1)}
+  50%{opacity:1;transform:translate(-50%,-55%) scale(1.08)}
+}
+
+.gold-ring{
+  width:120px;height:120px;
+  border-radius:50%;
+  border:2px solid rgba(212,168,67,.3);
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:2rem;
+  position:relative;
+  animation:spin-ring 8s linear infinite;
+}
+@keyframes spin-ring{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.gold-ring::before{
+  content:'';
+  position:absolute;
+  width:100px;height:100px;
+  border-radius:50%;
+  border:1px solid rgba(212,168,67,.15);
+}
+.gold-ring-inner{
+  width:84px;height:84px;
+  border-radius:50%;
+  background:linear-gradient(135deg,rgba(212,168,67,.2),rgba(212,168,67,.05));
+  border:1px solid rgba(212,168,67,.4);
+  display:flex;align-items:center;justify-content:center;
+  animation:spin-ring 8s linear infinite reverse;
+}
+.star-icon{font-size:32px;filter:drop-shadow(0 0 12px rgba(212,168,67,.6))}
+
+.landing-title{
+  font-family:'Playfair Display',serif;
+  font-size:clamp(42px,7vw,72px);
+  font-weight:900;
+  letter-spacing:-2px;
+  text-align:center;
+  line-height:1;
+  margin-bottom:.5rem;
+}
+.landing-title span{
+  background:linear-gradient(135deg,var(--gold2),var(--gold),var(--gold3));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.landing-sub{
+  font-size:15px;color:var(--text2);
+  text-align:center;margin-bottom:3rem;
+  letter-spacing:.5px;
+}
+
+.input-card{
+  background:var(--bg2);
+  border:1px solid var(--border2);
+  border-radius:20px;
+  padding:2.5rem 3rem;
+  width:min(460px,90vw);
+  position:relative;
+  box-shadow:0 40px 80px rgba(0,0,0,.5);
+}
+.input-card::before{
+  content:'';
+  position:absolute;
+  inset:0;border-radius:20px;
+  background:linear-gradient(135deg,rgba(212,168,67,.06),transparent 50%);
+  pointer-events:none;
+}
+.input-label{
+  display:block;
+  font-size:11px;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--text2);margin-bottom:.75rem;
+  font-family:'JetBrains Mono',monospace;
+}
+.input-row{display:flex;gap:12px;align-items:stretch}
+.month-input{
+  flex:1;
+  background:var(--bg3);
+  border:1px solid var(--border2);
+  border-radius:12px;
+  color:var(--text);
+  font-family:'Playfair Display',serif;
+  font-size:42px;
+  font-weight:700;
+  text-align:center;
+  padding:16px;
+  outline:none;
+  transition:border-color .2s,box-shadow .2s;
+  -moz-appearance:textfield;
+}
+.month-input::-webkit-inner-spin-button,.month-input::-webkit-outer-spin-button{-webkit-appearance:none}
+.month-input:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(212,168,67,.15)}
+.month-input::placeholder{color:var(--text3)}
+
+.forecast-btn{
+  background:linear-gradient(135deg,var(--gold),var(--gold3));
+  border:none;border-radius:12px;
+  color:#0D0E0F;
+  font-family:'Inter',sans-serif;
+  font-size:13px;font-weight:700;
+  padding:0 28px;cursor:pointer;
+  letter-spacing:.5px;
+  transition:all .2s;
+  white-space:nowrap;
+  text-transform:uppercase;
+}
+.forecast-btn:hover{transform:scale(1.03);box-shadow:0 8px 24px rgba(212,168,67,.35)}
+.forecast-btn:active{transform:scale(.98)}
+
+.quick-btns{display:flex;gap:8px;margin-top:1rem;justify-content:center;flex-wrap:wrap}
+.quick-btn{
+  background:transparent;
+  border:1px solid var(--border2);
+  border-radius:8px;
+  color:var(--text2);
+  font-size:12px;padding:6px 14px;
+  cursor:pointer;font-family:'Inter',sans-serif;
+  transition:all .15s;
+}
+.quick-btn:hover{border-color:var(--gold);color:var(--gold);background:rgba(212,168,67,.06)}
+
+.input-hint{font-size:11px;color:var(--text3);text-align:center;margin-top:1rem;font-family:'JetBrains Mono',monospace}
+.error-msg{font-size:12px;color:#E05252;text-align:center;margin-top:.75rem;min-height:16px;font-family:'JetBrains Mono',monospace}
+
+#app{
+  position:relative;z-index:1;
+  min-height:100vh;
+  opacity:0;transform:translateY(30px);
+  transition:opacity .8s ease .2s, transform .8s ease .2s;
+  display:none;
+}
+#app.visible{opacity:1;transform:none;display:block}
+
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:1.25rem 2rem;
+  border-bottom:1px solid var(--border);
+  background:rgba(13,14,15,.9);
+  backdrop-filter:blur(20px);
+  position:sticky;top:0;z-index:50;
+  flex-wrap:wrap;gap:1rem;
+}
+.topbar-brand{display:flex;align-items:center;gap:12px}
+.tb-icon{
+  width:36px;height:36px;border-radius:8px;
+  background:linear-gradient(135deg,var(--gold),var(--gold3));
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;
+}
+.tb-name{font-family:'Playfair Display',serif;font-size:18px;letter-spacing:-.3px}
+.tb-sub{font-size:10px;color:var(--text2);font-family:'JetBrains Mono',monospace;margin-top:1px}
+.topbar-right{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.forecast-pill{
+  background:rgba(212,168,67,.12);
+  border:1px solid rgba(212,168,67,.25);
+  border-radius:20px;padding:5px 14px;
+  font-size:12px;font-family:'JetBrains Mono',monospace;
+  color:var(--gold);
+}
+.reset-btn{
+  background:transparent;border:1px solid var(--border2);
+  border-radius:8px;padding:6px 14px;
+  color:var(--text2);font-size:12px;cursor:pointer;
+  font-family:'Inter',sans-serif;
+  transition:all .15s;
+}
+.reset-btn:hover{border-color:var(--border2);color:var(--text);background:var(--surface)}
+
+.main-grid{
+  padding:2rem;
+  display:flex;flex-direction:column;gap:1.5rem;
+  max-width:1300px;margin:0 auto
+}
+
+.summary-strip{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+  gap:12px;
+}
+.summary-card{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:1.25rem 1.5rem;
+  position:relative;overflow:hidden;
+  transition:border-color .2s;
+}
+.summary-card:hover{border-color:var(--border2)}
+.summary-card.gold-card{border-bottom:2px solid rgba(212,168,67,.4)}
+.summary-card.silver-card{border-bottom:2px solid rgba(168,180,191,.4)}
+.summary-card.regime-card{border-bottom:2px solid rgba(61,173,122,.4)}
+.sc-label{
+  font-size:10px;letter-spacing:1.2px;text-transform:uppercase;
+  color:var(--text2);font-family:'JetBrains Mono',monospace;margin-bottom:.5rem
+}
+.sc-val{
+  font-family:'Playfair Display',serif;
+  font-size:28px;font-weight:700;line-height:1
+}
+.sc-val.gold{color:var(--gold)}
+.sc-val.silver{color:var(--silver2)}
+.sc-sub{font-size:11px;color:var(--text2);margin-top:.35rem}
+.sc-up{color:var(--normal)}
+.sc-down{color:var(--crisis)}
+.sc-shine{
+  position:absolute;top:-30px;right:-30px;
+  width:80px;height:80px;border-radius:50%;
+  opacity:.06;
+}
+.gold-shine{background:var(--gold)}
+.silver-shine{background:var(--silver2)}
+
+.section-title{
+  font-family:'Playfair Display',serif;
+  font-size:22px;font-weight:700;
+  margin-bottom:1.25rem;
+  display:flex;align-items:center;gap:12px;
+}
+.section-title::after{
+  content:'';
+  flex:1;height:1px;background:var(--border);
+}
+.title-badge{
+  font-size:10px;padding:3px 10px;border-radius:10px;
+  font-family:'JetBrains Mono',monospace;font-weight:400;
+  background:rgba(212,168,67,.12);color:var(--gold);
+  border:1px solid rgba(212,168,67,.2);
+  letter-spacing:.5px;
+}
+
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
+@media(max-width:700px){.charts-grid{grid-template-columns:1fr}}
+
+.chart-card{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:16px;padding:1.5rem;
+  position:relative;overflow:hidden;
+}
+.chart-card-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:1.25rem
+}
+.chart-card-title{font-size:14px;font-weight:600;letter-spacing:-.2px}
+.chart-card-badge{
+  font-size:10px;padding:3px 10px;border-radius:10px;
+  font-family:'JetBrains Mono',monospace;
+}
+.badge-n{background:rgba(61,173,122,.12);color:var(--normal);border:1px solid rgba(61,173,122,.2)}
+.badge-c{background:rgba(224,82,82,.12);color:var(--crisis);border:1px solid rgba(224,82,82,.2)}
+.badge-m{background:rgba(139,111,212,.12);color:var(--mixed);border:1px solid rgba(139,111,212,.2)}
+
+.chart-legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:1rem}
+.cleg{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2)}
+.cleg-dot{width:10px;height:10px;border-radius:2px}
+.chart-wrap{position:relative;width:100%}
+
+.chart-card-wide{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:16px;padding:1.5rem;
+}
+
+.table-card{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:16px;padding:1.5rem;
+  overflow-x:auto;
+}
+.ftable{width:100%;border-collapse:collapse;font-size:13px;min-width:600px}
+.ftable th{
+  padding:10px 14px;
+  text-align:right;
+  font-size:10px;letter-spacing:1px;text-transform:uppercase;
+  color:var(--text2);font-family:'JetBrains Mono',monospace;font-weight:500;
+  border-bottom:1px solid var(--border);
+}
+.ftable th:first-child{text-align:left}
+.ftable td{
+  padding:11px 14px;text-align:right;
+  border-bottom:1px solid var(--border);
+  font-size:13px;
+}
+.ftable td:first-child{
+  text-align:left;font-family:'JetBrains Mono',monospace;
+  font-size:12px;color:var(--text2)
+}
+.ftable tr:last-child td{border-bottom:none}
+.ftable tbody tr:hover{background:rgba(255,255,255,.025)}
+.gold-val{color:var(--gold);font-weight:500}
+.silver-val{color:var(--silver2);font-weight:500}
+.inr-val{color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px}
+.regime-pill{
+  font-size:10px;padding:3px 9px;border-radius:8px;
+  font-family:'JetBrains Mono',monospace;display:inline-block;
+}
+
+.indicators-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:12px
+}
+.ind-card{
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:12px;padding:1rem 1.25rem;
+  display:flex;align-items:center;gap:12px;
+}
+.ind-icon{
+  width:38px;height:38px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;flex-shrink:0;
+}
+.ind-label{
+  font-size:11px;color:var(--text2);
+  font-family:'JetBrains Mono',monospace;margin-bottom:3px
+}
+.ind-val{font-size:16px;font-weight:600}
+
+.donut-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.25rem}
+@media(max-width:700px){.donut-row{grid-template-columns:1fr}}
+.donut-card{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:16px;padding:1.5rem;
+  display:flex;flex-direction:column;align-items:center;
+}
+.donut-card-title{font-size:13px;font-weight:600;margin-bottom:1rem;align-self:flex-start}
+.donut-wrap{position:relative;width:140px;height:140px;margin:0 auto}
+.donut-center{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  text-align:center;pointer-events:none;
+}
+.donut-center-val{
+  font-family:'Playfair Display',serif;
+  font-size:24px;font-weight:700
+}
+.donut-center-lbl{
+  font-size:10px;color:var(--text2);
+  font-family:'JetBrains Mono',monospace
+}
+
+.vol-legend{
+  display:flex;gap:20px;flex-wrap:wrap;
+  margin-bottom:.75rem;font-size:12px;color:var(--text2)
+}
+.vol-dot{
+  width:12px;height:12px;border-radius:3px;
+  display:inline-block;margin-right:5px;vertical-align:middle
+}
+
+#loading-overlay{
+  position:fixed;inset:0;z-index:200;
+  background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;
+  transition:opacity .3s;
+}
+#loading-overlay.show{opacity:1;pointer-events:all}
+.spinner{
+  width:60px;height:60px;
+  border:2px solid var(--border);
+  border-top-color:var(--gold);
+  border-radius:50%;
+  animation:spin .8s linear infinite;
+  margin-bottom:1.5rem;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{
+  font-size:13px;color:var(--text2);
+  font-family:'JetBrains Mono',monospace;text-align:center
+}
+.loading-sub{
+  font-size:11px;color:var(--text3);
+  margin-top:.5rem;font-family:'JetBrains Mono',monospace
+}
+</style>
+</head>
+<body>
+
+<canvas id="particles"></canvas>
+
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">Initialising forecast engine...</div>
+  <div class="loading-sub" id="loading-sub">Please wait</div>
+</div>
+
+<div id="landing">
+  <div class="landing-glow"></div>
+
+  <div class="gold-ring">
+    <div class="gold-ring-inner">
+      <span class="star-icon">✦</span>
+    </div>
+  </div>
+
+  <h1 class="landing-title">Precious<span>ML</span></h1>
+  <p class="landing-sub">Regime-Switching Gold & Silver Forecast Engine · Backend Driven</p>
+
+  <div class="input-card">
+    <label class="input-label" for="month-input">Forecast horizon — how many months ahead?</label>
+    <div class="input-row">
+      <input
+        class="month-input"
+        id="month-input"
+        type="number"
+        min="1" max="36"
+        placeholder="6"
+        autocomplete="off"
+      >
+      <button class="forecast-btn" onclick="startForecast()">Forecast →</button>
+    </div>
+    <div class="quick-btns">
+      <button class="quick-btn" onclick="setMonths(3)">3 mo</button>
+      <button class="quick-btn" onclick="setMonths(6)">6 mo</button>
+      <button class="quick-btn" onclick="setMonths(12)">12 mo</button>
+      <button class="quick-btn" onclick="setMonths(24)">24 mo</button>
+    </div>
+    <p class="input-hint">Enter 1 – 36 months · Press Enter or click Forecast</p>
+    <p class="error-msg" id="err-msg"></p>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="tb-icon">✦</div>
+      <div>
+        <div class="tb-name">PreciousML</div>
+        <div class="tb-sub">regime-switching forecast engine</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="forecast-pill" id="forecast-pill">Forecast: 6 months</div>
+      <div class="forecast-pill" id="regime-pill" style="background:rgba(61,173,122,.1);border-color:rgba(61,173,122,.25);color:var(--normal)">Normal Regime</div>
+      <button class="reset-btn" onclick="resetApp()">← New forecast</button>
+    </div>
+  </div>
+
+  <div class="main-grid">
+
+    <div class="summary-strip" id="summary-strip">
+      <div class="summary-card gold-card">
+        <div class="sc-shine gold-shine"></div>
+        <div class="sc-label">Gold now</div>
+        <div class="sc-val gold" id="gold-now">$—</div>
+        <div class="sc-sub">Current reference price</div>
+      </div>
+      <div class="summary-card gold-card">
+        <div class="sc-shine gold-shine"></div>
+        <div class="sc-label">Gold forecast end</div>
+        <div class="sc-val gold" id="sc-gold-end">—</div>
+        <div class="sc-sub" id="sc-gold-chg">—</div>
+      </div>
+      <div class="summary-card silver-card">
+        <div class="sc-shine silver-shine"></div>
+        <div class="sc-label">Silver now</div>
+        <div class="sc-val silver" id="silver-now">$—</div>
+        <div class="sc-sub">Current reference price</div>
+      </div>
+      <div class="summary-card silver-card">
+        <div class="sc-shine silver-shine"></div>
+        <div class="sc-label">Silver forecast end</div>
+        <div class="sc-val silver" id="sc-silver-end">—</div>
+        <div class="sc-sub" id="sc-silver-chg">—</div>
+      </div>
+      <div class="summary-card regime-card">
+        <div class="sc-label">Regime detected</div>
+        <div class="sc-val" id="sc-regime" style="font-size:18px;margin-top:4px">Normal</div>
+        <div class="sc-sub" id="sc-regime-conf">Model confidence 81%</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Price Forecasts <span class="title-badge">Backend forecast</span></div>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div class="chart-card-title">Gold (USD / oz)</div>
+            <div class="chart-card-badge badge-n" id="gold-badge">Normal</div>
+          </div>
+          <div class="chart-legend">
+            <div class="cleg"><div class="cleg-dot" style="background:#D4A843"></div>Forecast</div>
+            <div class="cleg"><div class="cleg-dot" style="background:#5A5855"></div>Historical anchor</div>
+            <div class="cleg"><div class="cleg-dot" style="background:rgba(212,168,67,.15);border:1px solid rgba(212,168,67,.3)"></div>Confidence band</div>
+          </div>
+          <div class="chart-wrap" style="height:240px">
+            <canvas id="goldChart"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div class="chart-card-title">Silver (USD / oz)</div>
+            <div class="chart-card-badge badge-n" id="silver-badge">Normal</div>
+          </div>
+          <div class="chart-legend">
+            <div class="cleg"><div class="cleg-dot" style="background:#A8B4BF"></div>Forecast</div>
+            <div class="cleg"><div class="cleg-dot" style="background:#5A5855"></div>Historical anchor</div>
+            <div class="cleg"><div class="cleg-dot" style="background:rgba(168,180,191,.15);border:1px solid rgba(168,180,191,.3)"></div>Confidence band</div>
+          </div>
+          <div class="chart-wrap" style="height:240px">
+            <canvas id="silverChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Indian Rupee Prices <span class="title-badge" id="inr-badge">USD/INR —</span></div>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div class="chart-card-title">Gold (INR / 10 grams)</div>
+          </div>
+          <div class="chart-wrap" style="height:200px">
+            <canvas id="goldInrChart"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div class="chart-card-title">Silver (INR / kg)</div>
+          </div>
+          <div class="chart-wrap" style="height:200px">
+            <canvas id="silverInrChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Normalised Comparison <span class="title-badge">rebased to 100</span></div>
+      <div class="chart-card-wide">
+        <div class="chart-legend" style="margin-bottom:1rem">
+          <div class="cleg"><div class="cleg-dot" style="background:#D4A843"></div>Gold</div>
+          <div class="cleg"><div class="cleg-dot" style="background:#A8B4BF"></div>Silver</div>
+        </div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="comboChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Regime Analysis</div>
+      <div class="donut-row">
+        <div class="donut-card">
+          <div class="donut-card-title">Regime distribution</div>
+          <div class="donut-wrap">
+            <canvas id="regimeDonut"></canvas>
+            <div class="donut-center">
+              <div class="donut-center-val" style="color:var(--normal)" id="dn-pct">62%</div>
+              <div class="donut-center-lbl">normal</div>
+            </div>
+          </div>
+        </div>
+        <div class="donut-card">
+          <div class="donut-card-title">Forecast scenario mix</div>
+          <div class="donut-wrap">
+            <canvas id="scenarioDonut"></canvas>
+            <div class="donut-center">
+              <div class="donut-center-val" style="color:var(--gold)" id="sn-pct">—</div>
+              <div class="donut-center-lbl">bull cases</div>
+            </div>
+          </div>
+        </div>
+        <div class="donut-card">
+          <div class="donut-card-title">Gold / Silver ratio</div>
+          <div class="donut-wrap">
+            <canvas id="ratioDonut"></canvas>
+            <div class="donut-center">
+              <div class="donut-center-val" style="color:var(--text)" id="ratio-pct">—</div>
+              <div class="donut-center-lbl">G/S ratio</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Monthly Return & Volatility</div>
+      <div class="chart-card-wide">
+        <div class="vol-legend">
+          <span><span class="vol-dot" style="background:#D4A843"></span>Gold return %</span>
+          <span><span class="vol-dot" style="background:#A8B4BF"></span>Silver return %</span>
+        </div>
+        <div class="chart-wrap" style="height:200px">
+          <canvas id="retChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Full Forecast Table <span class="title-badge">all periods</span></div>
+      <div class="table-card">
+        <table class="ftable">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Gold USD/oz</th>
+              <th>Gold INR/10g</th>
+              <th>Silver USD/oz</th>
+              <th>Silver INR/kg</th>
+              <th>USD/INR</th>
+              <th>G/S Ratio</th>
+              <th>Regime</th>
+            </tr>
+          </thead>
+          <tbody id="ftbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div>
+  <div class="section-title">Macro Scenario Used</div>
+  <div class="indicators-grid">
+    <div class="ind-card"><div class="ind-icon" style="background:rgba(212,168,67,.12)">🏛</div><div><div class="ind-label">Fed Rate</div><div class="ind-val" id="ind-fed">2.00%</div></div></div>
+    <div class="ind-card"><div class="ind-icon" style="background:rgba(224,82,82,.1)">📈</div><div><div class="ind-label">Inflation</div><div class="ind-val" id="ind-inf">3.00%</div></div></div>
+    <div class="ind-card"><div class="ind-icon" style="background:rgba(61,173,122,.1)">📊</div><div><div class="ind-label">VIX</div><div class="ind-val" id="ind-vix">18.4</div></div></div>
+    <div class="ind-card"><div class="ind-icon" style="background:rgba(139,111,212,.1)">💹</div><div><div class="ind-label">US10Y</div><div class="ind-val" id="ind-10y">4.20%</div></div></div>
+    <div class="ind-card"><div class="ind-icon" style="background:rgba(168,180,191,.1)">💱</div><div><div class="ind-label">USD/INR</div><div class="ind-val" id="ind-inr">—</div></div></div>
+    <div class="ind-card"><div class="ind-icon" style="background:rgba(212,168,67,.08)">🌐</div><div><div class="ind-label">DXY</div><div class="ind-val" id="ind-dxy">103.2</div></div></div>
+  </div>
+</div>
+
+<div style="height:2rem"></div>
+</div>
+</div>
+
+<script>
+/* PARTICLES */
+(function(){
+  const c = document.getElementById('particles');
+  const ctx = c.getContext('2d');
+  let W, H, pts = [];
+
+  function resize(){
+    W = c.width = innerWidth;
+    H = c.height = innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  for(let i=0;i<60;i++){
+    pts.push({
+      x:Math.random()*1400,
+      y:Math.random()*900,
+      vx:(Math.random()-.5)*.3,
+      vy:(Math.random()-.5)*.3,
+      r:Math.random()*1.5+.5,
+      gold:Math.random()>.5
+    });
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    pts.forEach(p=>{
+      p.x += p.vx;
+      p.y += p.vy;
+      if(p.x < 0) p.x = W;
+      if(p.x > W) p.x = 0;
+      if(p.y < 0) p.y = H;
+      if(p.y > H) p.y = 0;
+
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle = p.gold ? 'rgba(212,168,67,.6)' : 'rgba(168,180,191,.4)';
+      ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+document.getElementById('month-input').addEventListener('keydown', e => {
+  if(e.key === 'Enter') startForecast();
+});
+
+function setMonths(n){
+  document.getElementById('month-input').value = n;
+  document.getElementById('err-msg').textContent = '';
+}
+
+const OZ2G = 31.1035;
+const GOLD0 = 3238;
+const SILVER0 = 32.14;
+const VIX0 = 18.4;
+const FED0 = 2.0;
+const INFL0 = 3.0;
+const US10Y0 = 4.2;
+const DXY0 = 103.2;
+
+const HIST_GOLD = [2630,2650,2700,2780,2830,2900,2980,3050,3120,3180,3210,GOLD0];
+const HIST_SILVER = [28.2,28.8,29.1,29.9,30.4,30.8,31.2,31.5,31.8,32.0,32.1,SILVER0];
+const HIST_LABELS = ["May'24","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan'25","Feb","Mar","Apr"];
+
+function detectRegime(vix){
+  if(vix > 35) return 'crisis';
+  if(vix > 25) return 'mixed';
+  return 'normal';
+}
+
+const charts = {};
+
+function destroyAll(){
+  Object.values(charts).forEach(c => {
+    if(c) c.destroy();
+  });
+  Object.keys(charts).forEach(k => delete charts[k]);
+}
+
+function startForecast(){
+  const raw = document.getElementById('month-input').value.trim();
+  const n = parseInt(raw, 10);
+
+  if(!raw || isNaN(n) || n < 1 || n > 36){
+    document.getElementById('err-msg').textContent = 'Please enter a number between 1 and 36.';
+    return;
+  }
+
+  document.getElementById('err-msg').textContent = '';
+  showLoading(n);
+}
+
+const loadingSteps = [
+  ['Requesting forecast from backend...','Fetching month-wise USD/INR and prices'],
+  ['Preparing charts...','Processing forecast response'],
+  ['Rendering dashboard...','Almost ready']
+];
+
+function showLoading(n){
+  const ol = document.getElementById('loading-overlay');
+  const lt = document.getElementById('loading-text');
+  const ls = document.getElementById('loading-sub');
+
+  ol.classList.add('show');
+  let step = 0;
+
+  lt.textContent = loadingSteps[0][0];
+  ls.textContent = loadingSteps[0][1];
+
+  const iv = setInterval(() => {
+    step++;
+    if(step < loadingSteps.length){
+      lt.textContent = loadingSteps[step][0];
+      ls.textContent = loadingSteps[step][1];
+    }
+  }, 500);
+
+  renderApp(n).finally(() => clearInterval(iv));
+}
+
+async function renderApp(n){
+  try{
+    const res = await fetch('/forecast', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ months: n })
+    });
+
+    if(!res.ok){
+      throw new Error(`Backend error ${res.status}`);
+    }
+
+    const data = await res.json();
+
+    if(!Array.isArray(data) || data.length === 0){
+      throw new Error('Empty forecast response');
+    }
+
+    const labels = data.map(d =>
+      new Date(d.date).toLocaleDateString('en-US', { month:'short', year:'2-digit' })
+    );
+
+    const goldMean = data.map(d => Number(d.gold_usd));
+    const silverMean = data.map(d => Number(d.silver_usd));
+    const usdinr = data.map(d => Number(d.usdinr));
+
+    const goldLow = data.map(d => d.gold_usd_p10 != null ? Number(d.gold_usd_p10) : Number(d.gold_usd));
+    const goldHigh = data.map(d => d.gold_usd_p90 != null ? Number(d.gold_usd_p90) : Number(d.gold_usd));
+    const silverLow = data.map(d => d.silver_usd_p10 != null ? Number(d.silver_usd_p10) : Number(d.silver_usd));
+    const silverHigh = data.map(d => d.silver_usd_p90 != null ? Number(d.silver_usd_p90) : Number(d.silver_usd));
+
+    const goldNow = Number(data[0].gold_now ?? GOLD0);
+    const silverNow = Number(data[0].silver_now ?? SILVER0);
+
+    const regime = detectRegime(VIX0);
+
+    destroyAll();
+
+    buildSummary(n, goldMean, silverMean, regime, goldNow, silverNow);
+    buildGoldChart(labels, goldMean, goldLow, goldHigh);
+    buildSilverChart(labels, silverMean, silverLow, silverHigh);
+    buildInrCharts(labels, goldMean, silverMean, usdinr);
+    buildComboChart(labels, goldMean, silverMean);
+    buildReturnsChart(labels, goldMean, silverMean, goldNow, silverNow);
+    buildDonuts(goldMean, silverMean, regime);
+    buildTable(labels, goldMean, silverMean, usdinr);
+    updateIndicators(regime, usdinr);
+    updateRegimeBadges(regime);
+
+    const latestInr = usdinr[usdinr.length - 1];
+    document.getElementById('inr-badge').textContent = 'USD/INR ' + latestInr.toFixed(2);
+
+    const landing = document.getElementById('landing');
+    const app = document.getElementById('app');
+    const overlay = document.getElementById('loading-overlay');
+
+    landing.classList.add('hidden');
+    app.style.display = 'block';
+
+    requestAnimationFrame(() => {
+      app.classList.add('visible');
+      overlay.classList.remove('show');
+    });
+  }catch(err){
+    console.error(err);
+    document.getElementById('loading-overlay').classList.remove('show');
+    document.getElementById('err-msg').textContent = 'Forecast load failed. Check backend /forecast response.';
+  }
+}
+
+function buildSummary(n, gm, sm, regime, goldNow, silverNow){
+  document.getElementById('forecast-pill').textContent = 'Forecast: ' + n + ' month' + (n > 1 ? 's' : '');
+
+  document.getElementById('gold-now').textContent = '$' + Math.round(goldNow).toLocaleString();
+  document.getElementById('silver-now').textContent = '$' + silverNow.toFixed(2);
+
+  const rp = document.getElementById('regime-pill');
+  const regimeLabel = regime.charAt(0).toUpperCase() + regime.slice(1);
+  rp.textContent = regimeLabel + ' Regime';
+
+  if(regime === 'crisis'){
+    rp.style.color = 'var(--crisis)';
+    rp.style.background = 'rgba(224,82,82,.1)';
+    rp.style.borderColor = 'rgba(224,82,82,.25)';
+  }else if(regime === 'mixed'){
+    rp.style.color = 'var(--mixed)';
+    rp.style.background = 'rgba(139,111,212,.1)';
+    rp.style.borderColor = 'rgba(139,111,212,.25)';
+  }else{
+    rp.style.color = 'var(--normal)';
+    rp.style.background = 'rgba(61,173,122,.1)';
+    rp.style.borderColor = 'rgba(61,173,122,.25)';
+  }
+
+  const gEnd = gm[gm.length - 1];
+  const sEnd = sm[sm.length - 1];
+  const gChg = ((gEnd - goldNow) / goldNow) * 100;
+  const sChg = ((sEnd - silverNow) / silverNow) * 100;
+
+  document.getElementById('sc-gold-end').textContent = '$' + Math.round(gEnd).toLocaleString();
+  document.getElementById('sc-gold-chg').innerHTML =
+    (gChg >= 0 ? '<span class="sc-up">' : '<span class="sc-down">') +
+    (gChg >= 0 ? '+' : '') + gChg.toFixed(1) + '% vs today</span>';
+
+  document.getElementById('sc-silver-end').textContent = '$' + sEnd.toFixed(2);
+  document.getElementById('sc-silver-chg').innerHTML =
+    (sChg >= 0 ? '<span class="sc-up">' : '<span class="sc-down">') +
+    (sChg >= 0 ? '+' : '') + sChg.toFixed(1) + '% vs today</span>';
+
+  const rEl = document.getElementById('sc-regime');
+  rEl.textContent = regimeLabel;
+  rEl.style.color = regime === 'crisis' ? 'var(--crisis)' : regime === 'mixed' ? 'var(--mixed)' : 'var(--normal)';
+  document.getElementById('sc-regime-conf').textContent =
+    'Model confidence ' + (regime === 'normal' ? '81' : regime === 'mixed' ? '68' : '89') + '%';
+}
+
+function updateRegimeBadges(regime){
+  const ids = ['gold-badge','silver-badge'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.remove('badge-n','badge-m','badge-c');
+
+    if(regime === 'crisis'){
+      el.classList.add('badge-c');
+      el.textContent = 'Crisis';
+    }else if(regime === 'mixed'){
+      el.classList.add('badge-m');
+      el.textContent = 'Mixed';
+    }else{
+      el.classList.add('badge-n');
+      el.textContent = 'Normal';
+    }
+  });
+}
+
+function chartOpts(tickCb){
+  return {
+    responsive:true,
+    maintainAspectRatio:false,
+    interaction:{mode:'index',intersect:false},
+    plugins:{
+      legend:{display:false},
+      tooltip:{
+        backgroundColor:'#1E2022',
+        borderColor:'rgba(255,255,255,.1)',
+        borderWidth:1,
+        titleColor:'#F2F0EC',
+        bodyColor:'#9A9890',
+        padding:10,
+        filter:item => item.dataset.label !== 'Band high' && item.dataset.label !== 'Band low'
+      }
+    },
+    scales:{
+      x:{
+        grid:{color:'rgba(255,255,255,.04)'},
+        ticks:{color:'#5A5855',font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:10}
+      },
+      y:{
+        grid:{color:'rgba(255,255,255,.04)'},
+        ticks:{color:'#9A9890',font:{size:10},callback:tickCb}
+      }
+    }
+  };
+}
+
+function buildGoldChart(short, mean, low, high){
+  const hLen = HIST_GOLD.length;
+  const allLbls = [...HIST_LABELS, ...short];
+  const histData = [...HIST_GOLD, ...Array(short.length).fill(null)];
+  const meanData = [...Array(hLen - 1).fill(null), GOLD0, ...mean];
+  const bandLow = [...Array(hLen).fill(null), ...low];
+  const bandHigh = [...Array(hLen).fill(null), ...high];
+
+  charts.gold = new Chart(document.getElementById('goldChart'), {
+    type:'line',
+    data:{
+      labels:allLbls,
+      datasets:[
+        {label:'Band high',data:bandHigh,borderColor:'transparent',backgroundColor:'rgba(212,168,67,.12)',fill:'+1',pointRadius:0,tension:.4},
+        {label:'Band low',data:bandLow,borderColor:'transparent',backgroundColor:'rgba(212,168,67,.12)',fill:false,pointRadius:0,tension:.4},
+        {label:'Historical',data:histData,borderColor:'#5A5855',borderWidth:1.5,borderDash:[4,3],pointRadius:0,tension:.4,fill:false},
+        {label:'Forecast',data:meanData,borderColor:'#D4A843',borderWidth:2.5,pointRadius:3,pointBackgroundColor:'#D4A843',pointBorderColor:'#0D0E0F',pointBorderWidth:1.5,tension:.4,fill:false}
+      ]
+    },
+    options:chartOpts(v => '$' + Math.round(v).toLocaleString())
+  });
+}
+
+function buildSilverChart(short, mean, low, high){
+  const hLen = HIST_SILVER.length;
+  const allLbls = [...HIST_LABELS, ...short];
+  const histData = [...HIST_SILVER, ...Array(short.length).fill(null)];
+  const meanData = [...Array(hLen - 1).fill(null), SILVER0, ...mean];
+  const bandLow = [...Array(hLen).fill(null), ...low];
+  const bandHigh = [...Array(hLen).fill(null), ...high];
+
+  charts.silver = new Chart(document.getElementById('silverChart'), {
+    type:'line',
+    data:{
+      labels:allLbls,
+      datasets:[
+        {label:'Band high',data:bandHigh,borderColor:'transparent',backgroundColor:'rgba(168,180,191,.12)',fill:'+1',pointRadius:0,tension:.4},
+        {label:'Band low',data:bandLow,borderColor:'transparent',backgroundColor:'rgba(168,180,191,.12)',fill:false,pointRadius:0,tension:.4},
+        {label:'Historical',data:histData,borderColor:'#5A5855',borderWidth:1.5,borderDash:[4,3],pointRadius:0,tension:.4,fill:false},
+        {label:'Forecast',data:meanData,borderColor:'#A8B4BF',borderWidth:2.5,pointRadius:3,pointBackgroundColor:'#A8B4BF',pointBorderColor:'#0D0E0F',pointBorderWidth:1.5,tension:.4,fill:false}
+      ]
+    },
+    options:chartOpts(v => '$' + Number(v).toFixed(2))
+  });
+}
+
+function buildInrCharts(labels, gm, sm, usdinr){
+  const goldInr = gm.map((v,i) => v / OZ2G * usdinr[i] * 10);
+  const silvInr = sm.map((v,i) => v / OZ2G * usdinr[i] * 1000);
+
+  charts.goldInr = new Chart(document.getElementById('goldInrChart'), {
+    type:'bar',
+    data:{
+      labels:labels,
+      datasets:[{
+        label:'Gold INR/10g',
+        data:goldInr,
+        backgroundColor:'rgba(212,168,67,.55)',
+        borderColor:'#D4A843',
+        borderWidth:1,
+        borderRadius:4
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#1E2022',
+          borderColor:'rgba(255,255,255,.1)',
+          borderWidth:1,
+          titleColor:'#F2F0EC',
+          bodyColor:'#9A9890',
+          callbacks:{label:ctx => '₹' + Math.round(ctx.raw).toLocaleString()}
+        }
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#5A5855',font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:8}},
+        y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#9A9890',font:{size:10},callback:v => '₹' + Math.round(v).toLocaleString()}}
+      }
+    }
+  });
+
+  charts.silverInr = new Chart(document.getElementById('silverInrChart'), {
+    type:'bar',
+    data:{
+      labels:labels,
+      datasets:[{
+        label:'Silver INR/kg',
+        data:silvInr,
+        backgroundColor:'rgba(168,180,191,.45)',
+        borderColor:'#A8B4BF',
+        borderWidth:1,
+        borderRadius:4
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#1E2022',
+          borderColor:'rgba(255,255,255,.1)',
+          borderWidth:1,
+          titleColor:'#F2F0EC',
+          bodyColor:'#9A9890',
+          callbacks:{label:ctx => '₹' + Math.round(ctx.raw).toLocaleString()}
+        }
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#5A5855',font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:8}},
+        y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#9A9890',font:{size:10},callback:v => '₹' + Math.round(v).toLocaleString()}}
+      }
+    }
+  });
+}
+
+function buildComboChart(labels, gm, sm){
+  const gNorm = gm.map(v => v / gm[0] * 100);
+  const sNorm = sm.map(v => v / sm[0] * 100);
+
+  charts.combo = new Chart(document.getElementById('comboChart'), {
+    type:'line',
+    data:{
+      labels:labels,
+      datasets:[
+        {label:'Gold',data:gNorm,borderColor:'#D4A843',borderWidth:2,pointRadius:2,pointBackgroundColor:'#D4A843',tension:.4,fill:false},
+        {label:'Silver',data:sNorm,borderColor:'#A8B4BF',borderWidth:2,pointRadius:2,pointBackgroundColor:'#A8B4BF',tension:.4,fill:false,borderDash:[5,3]}
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#1E2022',
+          borderColor:'rgba(255,255,255,.1)',
+          borderWidth:1,
+          titleColor:'#F2F0EC',
+          bodyColor:'#9A9890',
+          callbacks:{label:ctx => ctx.dataset.label + ': ' + ctx.raw.toFixed(1)}
+        }
+      },
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A5855',font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:10}},
+        y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#9A9890',font:{size:10},callback:v => v.toFixed(0)},min:95}
+      }
+    }
+  });
+}
+
+function buildReturnsChart(labels, gm, sm, goldNow, silverNow){
+  const retLabels = labels.slice();
+  const gRets = [];
+  const sRets = [];
+
+  for(let i=0;i<gm.length;i++){
+    const prevGold = i === 0 ? goldNow : gm[i-1];
+    const prevSilver = i === 0 ? silverNow : sm[i-1];
+
+    gRets.push(((gm[i] - prevGold) / prevGold) * 100);
+    sRets.push(((sm[i] - prevSilver) / prevSilver) * 100);
+  }
+
+  charts.ret = new Chart(document.getElementById('retChart'), {
+    type:'bar',
+    data:{
+      labels:retLabels,
+      datasets:[
+        {label:'Gold %',data:gRets,backgroundColor:gRets.map(v => v >= 0 ? 'rgba(212,168,67,.7)' : 'rgba(224,82,82,.6)'),borderRadius:3},
+        {label:'Silver %',data:sRets,backgroundColor:sRets.map(v => v >= 0 ? 'rgba(168,180,191,.6)' : 'rgba(224,82,82,.45)'),borderRadius:3}
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#1E2022',
+          borderColor:'rgba(255,255,255,.1)',
+          borderWidth:1,
+          titleColor:'#F2F0EC',
+          bodyColor:'#9A9890',
+          callbacks:{label:ctx => ctx.dataset.label + ': ' + (ctx.raw >= 0 ? '+' : '') + ctx.raw.toFixed(2) + '%'}
+        }
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#5A5855',font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:10}},
+        y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#9A9890',font:{size:10},callback:v => v.toFixed(1) + '%'}}
+      }
+    }
+  });
+}
+
+function buildDonuts(gm, sm, regime){
+  const normalPct = regime === 'normal' ? 62 : regime === 'mixed' ? 35 : 15;
+  const crisisPct = regime === 'crisis' ? 60 : regime === 'mixed' ? 30 : 23;
+  const mixedPct = 100 - normalPct - crisisPct;
+
+  document.getElementById('dn-pct').textContent = normalPct + '%';
+
+  charts.regimeDonut = new Chart(document.getElementById('regimeDonut'), {
+    type:'doughnut',
+    data:{
+      labels:['Normal','Crisis','Mixed'],
+      datasets:[{
+        data:[normalPct, crisisPct, mixedPct],
+        backgroundColor:['rgba(61,173,122,.8)','rgba(224,82,82,.8)','rgba(139,111,212,.7)'],
+        borderColor:'#161718',
+        borderWidth:3,
+        hoverOffset:4
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      cutout:'68%',
+      plugins:{
+        legend:{display:false},
+        tooltip:{backgroundColor:'#1E2022',borderColor:'rgba(255,255,255,.1)',borderWidth:1,titleColor:'#F2F0EC',bodyColor:'#9A9890'}
+      }
+    }
+  });
+
+  const gEnd = gm[gm.length - 1];
+  const sEnd = sm[sm.length - 1];
+  const bullPct = Math.round((gEnd > gm[0] ? 55 : 35) + (sEnd > sm[0] ? 10 : 0));
+  const bearPct = 100 - bullPct;
+
+  document.getElementById('sn-pct').textContent = bullPct + '%';
+
+  charts.scenarioDonut = new Chart(document.getElementById('scenarioDonut'), {
+    type:'doughnut',
+    data:{
+      labels:['Bull','Bear'],
+      datasets:[{
+        data:[bullPct, bearPct],
+        backgroundColor:['rgba(212,168,67,.8)','rgba(90,100,112,.5)'],
+        borderColor:'#161718',
+        borderWidth:3,
+        hoverOffset:4
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      cutout:'68%',
+      plugins:{
+        legend:{display:false},
+        tooltip:{backgroundColor:'#1E2022',borderColor:'rgba(255,255,255,.1)',borderWidth:1,titleColor:'#F2F0EC',bodyColor:'#9A9890'}
+      }
+    }
+  });
+
+  const ratio = gEnd / sEnd;
+  document.getElementById('ratio-pct').textContent = ratio.toFixed(1) + 'x';
+
+  charts.ratioDonut = new Chart(document.getElementById('ratioDonut'), {
+    type:'doughnut',
+    data:{
+      labels:['Gold','Silver (scaled)'],
+      datasets:[{
+        data:[ratio, Math.max(1, 100 - ratio)],
+        backgroundColor:['rgba(212,168,67,.8)','rgba(168,180,191,.5)'],
+        borderColor:'#161718',
+        borderWidth:3,
+        hoverOffset:4
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      cutout:'68%',
+      plugins:{
+        legend:{display:false},
+        tooltip:{backgroundColor:'#1E2022',borderColor:'rgba(255,255,255,.1)',borderWidth:1,titleColor:'#F2F0EC',bodyColor:'#9A9890'}
+      }
+    }
+  });
+}
+
+function buildTable(labels, gm, sm, usdinr){
+  const tbody = document.getElementById('ftbody');
+  tbody.innerHTML = '';
+
+  gm.forEach((g, i) => {
+    const s = sm[i];
+    const fx = usdinr[i];
+    const gInr = Math.round(g / OZ2G * fx * 10);
+    const sInr = Math.round(s / OZ2G * fx * 1000);
+    const ratio = (g / s).toFixed(1);
+    const regime = detectRegime(VIX0);
+
+    const rc = regime === 'crisis' ? 'rgba(224,82,82,.12)' : regime === 'mixed' ? 'rgba(139,111,212,.12)' : 'rgba(61,173,122,.12)';
+    const rcc = regime === 'crisis' ? '#E05252' : regime === 'mixed' ? '#8B6FD4' : '#3DAD7A';
+
+    tbody.innerHTML += `
+      <tr>
+        <td>${labels[i]}</td>
+        <td class="gold-val">$${Math.round(g).toLocaleString()}</td>
+        <td class="inr-val">₹${gInr.toLocaleString()}</td>
+        <td class="silver-val">$${s.toFixed(2)}</td>
+        <td class="inr-val">₹${sInr.toLocaleString()}</td>
+        <td class="inr-val">${fx.toFixed(2)}</td>
+        <td style="color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:12px">${ratio}x</td>
+        <td><span class="regime-pill" style="background:${rc};color:${rcc}">${regime}</span></td>
+      </tr>
+    `;
+  });
+}
+
+function updateIndicators(regime, usdinr){
+  const vixVal = regime === 'crisis' ? 38 : regime === 'mixed' ? 26 : VIX0;
+  const latestInr = usdinr[usdinr.length - 1];
+
+  document.getElementById('ind-fed').textContent = FED0.toFixed(2) + '%';
+  document.getElementById('ind-inf').textContent = INFL0.toFixed(2) + '%';
+  document.getElementById('ind-vix').textContent = vixVal.toFixed(1);
+  document.getElementById('ind-10y').textContent = US10Y0.toFixed(2) + '%';
+  document.getElementById('ind-inr').textContent = latestInr.toFixed(2);
+  document.getElementById('ind-dxy').textContent = DXY0.toFixed(1);
+}
+
+function resetApp(){
+  destroyAll();
+
+  const app = document.getElementById('app');
+  const landing = document.getElementById('landing');
+  const overlay = document.getElementById('loading-overlay');
+
+  app.classList.remove('visible');
+  overlay.classList.remove('show');
+
+  setTimeout(() => {
+    app.style.display = 'none';
+    landing.classList.remove('hidden');
+  }, 400);
+
+  document.getElementById('month-input').value = '';
+  document.getElementById('err-msg').textContent = '';
+}
+</script>
+</body>
+</html>
