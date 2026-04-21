@@ -12,84 +12,128 @@ CORS(app)
 
 print("🚀 Initializing Model...")
 
-# ===============================
-# LOAD DATA
-# ===============================
-data = create_dataset()
-data.index = pd.to_datetime(data.index)
-data = data.sort_index()
-
 features = ['Fed', 'Inflation', 'US10Y', 'DXY', 'VIX', 'FSI', 'Spread', 'RealYield', 'USDINR']
 target_gold = 'Gold_Return'
 target_silver = 'Silver_Return'
 regime_vars = ['VIX', 'FSI', 'Spread', 'Fed', 'Inflation', 'USDINR']
 
-print("Rows after create_dataset():", len(data))
-print("Columns found:", list(data.columns))
+data = None
+scaler = None
+gmm = None
+crisis_regime = None
+model_gold_normal = None
+model_gold_crisis = None
+model_silver_normal = None
+model_silver_crisis = None
 
-required_cols = features + [target_gold, target_silver]
-missing_cols = [col for col in required_cols if col not in data.columns]
-if missing_cols:
-    raise ValueError(f"Missing required columns in dataset: {missing_cols}")
 
-data = data.dropna(subset=required_cols)
+def build_fallback_dataset():
+    dates = pd.date_range(start="2015-01-31", periods=140, freq="ME")
+    rng = np.random.default_rng(42)
 
-print("Rows after dropna on required columns:", len(data))
+    gold = np.linspace(1200, 3200, len(dates)) + rng.normal(0, 40, len(dates))
+    silver = np.linspace(15, 34, len(dates)) + rng.normal(0, 0.8, len(dates))
+    fed = np.clip(np.linspace(0.5, 5.0, len(dates)) + rng.normal(0, 0.25, len(dates)), 0, 10)
+    inflation = np.clip(2.5 + rng.normal(0, 0.5, len(dates)), 0.5, 12)
+    us10y = np.clip(3.0 + rng.normal(0, 0.5, len(dates)), 0.1, 8)
+    dxy = np.clip(100 + rng.normal(0, 4, len(dates)), 80, 120)
+    vix = np.clip(20 + rng.normal(0, 4, len(dates)), 9, 80)
+    fsi = np.clip(rng.normal(0.2, 0.5, len(dates)), -2, 3)
+    spread = np.clip(1.0 + rng.normal(0, 0.3, len(dates)), -1, 5)
+    real_yield = np.clip(us10y - inflation + rng.normal(0, 0.2, len(dates)), -3, 5)
+    usdinr = np.clip(np.linspace(62, 89, len(dates)) + rng.normal(0, 0.8, len(dates)), 50, 100)
 
-if data.empty:
-    raise ValueError(
-        "Dataset is empty after cleaning. External series may have failed to download."
-    )
+    df = pd.DataFrame({
+        "Gold": gold,
+        "Silver": silver,
+        "Fed": fed,
+        "Inflation": inflation,
+        "US10Y": us10y,
+        "DXY": dxy,
+        "VIX": vix,
+        "FSI": fsi,
+        "Spread": spread,
+        "RealYield": real_yield,
+        "USDINR": usdinr
+    }, index=dates)
 
-# ===============================
-# REGIME DETECTION
-# ===============================
-data, scaler, gmm = detect_regimes(data, regime_vars)
+    df["Gold_Return"] = df["Gold"].pct_change()
+    df["Silver_Return"] = df["Silver"].pct_change()
 
-print("Rows after detect_regimes():", len(data))
+    return df.dropna()
 
-train = data[data.index.year <= 2020].copy()
 
-print("Training rows:", len(train))
+def initialize_model():
+    global data, scaler, gmm, crisis_regime
+    global model_gold_normal, model_gold_crisis
+    global model_silver_normal, model_silver_crisis
 
-if train.empty:
-    raise ValueError(
-        "Training set is empty after filtering data up to year 2020."
-    )
+    try:
+        print("📥 Loading external dataset...")
+        loaded = create_dataset()
+        loaded.index = pd.to_datetime(loaded.index)
+        loaded = loaded.sort_index()
 
-if 'Regime' not in train.columns:
-    raise ValueError("Regime column not found after detect_regimes().")
+        required_cols = features + [target_gold, target_silver]
+        missing_cols = [col for col in required_cols if col not in loaded.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
 
-crisis_regime = train.groupby('Regime')['VIX'].mean().idxmax()
+        loaded = loaded.dropna(subset=required_cols)
 
-# ===============================
-# MODELS
-# ===============================
-model_gold_normal = GradientBoostingRegressor(random_state=42)
-model_gold_normal.fit(train[features], train[target_gold])
+        if loaded.empty:
+            raise ValueError("Dataset is empty after cleaning. External series may have failed to download.")
 
-crisis_train = train[train['Regime'] == crisis_regime].copy()
-if crisis_train.empty:
-    raise ValueError("Crisis regime training set is empty.")
+        data_local = loaded
 
-model_gold_crisis = GradientBoostingRegressor(random_state=42)
-model_gold_crisis.fit(crisis_train[features], crisis_train[target_gold])
+    except Exception as e:
+        print("⚠️ DATA LOAD FAILED:", str(e))
+        print("⚠️ Using fallback dataset")
+        data_local = build_fallback_dataset()
 
-model_silver_normal = GradientBoostingRegressor(random_state=42)
-model_silver_normal.fit(train[features], train[target_silver])
+    data_local, scaler_local, gmm_local = detect_regimes(data_local, regime_vars)
 
-crisis_train_silver = train[train['Regime'] == crisis_regime].copy()
-if crisis_train_silver.empty:
-    raise ValueError("Crisis regime silver training set is empty.")
+    train = data_local[data_local.index.year <= 2020].copy()
+    if train.empty:
+        train = data_local.copy()
 
-model_silver_crisis = GradientBoostingRegressor(random_state=42)
-model_silver_crisis.fit(crisis_train_silver[features], crisis_train_silver[target_silver])
+    crisis_regime_local = train.groupby('Regime')['VIX'].mean().idxmax()
 
-print("✅ Models Ready")
+    model_gold_normal_local = GradientBoostingRegressor(random_state=42)
+    model_gold_normal_local.fit(train[features], train[target_gold])
 
-# ===============================
-# SCENARIO GENERATOR
-# ===============================
+    crisis_train = train[train['Regime'] == crisis_regime_local].copy()
+    if crisis_train.empty:
+        crisis_train = train.copy()
+
+    model_gold_crisis_local = GradientBoostingRegressor(random_state=42)
+    model_gold_crisis_local.fit(crisis_train[features], crisis_train[target_gold])
+
+    model_silver_normal_local = GradientBoostingRegressor(random_state=42)
+    model_silver_normal_local.fit(train[features], train[target_silver])
+
+    crisis_train_silver = train[train['Regime'] == crisis_regime_local].copy()
+    if crisis_train_silver.empty:
+        crisis_train_silver = train.copy()
+
+    model_silver_crisis_local = GradientBoostingRegressor(random_state=42)
+    model_silver_crisis_local.fit(crisis_train_silver[features], crisis_train_silver[target_silver])
+
+    data = data_local
+    scaler = scaler_local
+    gmm = gmm_local
+    crisis_regime = crisis_regime_local
+    model_gold_normal = model_gold_normal_local
+    model_gold_crisis = model_gold_crisis_local
+    model_silver_normal = model_silver_normal_local
+    model_silver_crisis = model_silver_crisis_local
+
+    print("✅ Models Ready")
+
+
+initialize_model()
+
+
 def generate_scenario(last_usdinr):
     return {
         'Fed': float(np.clip(np.random.normal(2.0, 1.0), 0, 10)),
@@ -100,19 +144,18 @@ def generate_scenario(last_usdinr):
         'FSI': float(np.clip(np.random.normal(0.5, 0.5), -2, 3)),
         'Spread': float(np.clip(np.random.normal(1.0, 0.5), -1, 5)),
         'RealYield': float(np.clip(np.random.normal(1.0, 1.0), -3, 5)),
-        'USDINR': float(last_usdinr * (1 + np.random.normal(0, 0.01)))
+        'USDINR': float(np.clip(last_usdinr * (1 + np.random.normal(0, 0.01)), 50, 120))
     }
 
-# ===============================
-# ROUTES
-# ===============================
+
 @app.route('/')
 def home():
     return render_template("index.html")
 
+
 @app.route('/forecast', methods=['POST'])
 def forecast():
-    req = request.get_json() or {}
+    req = request.get_json(silent=True) or {}
     n_months = max(1, min(int(req.get("months", 6)), 36))
     n_simulations = 300
 
@@ -134,11 +177,7 @@ def forecast():
             usdinr = scenario['USDINR']
 
             row = pd.DataFrame([{f: scenario[f] for f in features}])
-
-            regime_input = pd.DataFrame(
-                [[scenario[v] for v in regime_vars]],
-                columns=regime_vars
-            )
+            regime_input = pd.DataFrame([[scenario[v] for v in regime_vars]], columns=regime_vars)
 
             regime = gmm.predict(scaler.transform(regime_input))[0]
 
@@ -188,8 +227,6 @@ def forecast():
 
     return jsonify(result)
 
-# ===============================
-# RUN
-# ===============================
+
 if __name__ == "__main__":
     app.run(debug=True, use_reloader=False)
