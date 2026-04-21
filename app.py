@@ -156,7 +156,7 @@ def forecast():
     try:
         req = request.get_json(silent=True) or {}
         n_months = max(1, min(int(req.get("months", 6)), 36))
-        n_simulations = 300
+        n_simulations = max(50, int(600 / n_months))
 
         mc_gold = np.zeros((n_months, n_simulations))
         mc_silver = np.zeros((n_months, n_simulations))
