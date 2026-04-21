@@ -29,109 +29,86 @@ model_gold_crisis = None
 model_silver_normal = None
 model_silver_crisis = None
 
-data_source = "unknown"
-startup_error = None
-
 
 # ===============================
-# FALLBACK DATA
-# ===============================
-def build_fallback_dataset():
-    print("⚠️ Using fallback dataset")
-
-    dates = pd.date_range(start="2015-01-31", periods=140, freq="ME")
-    rng = np.random.default_rng(42)
-
-    gold = np.linspace(1200, 3200, len(dates)) + rng.normal(0, 40, len(dates))
-    silver = np.linspace(15, 34, len(dates)) + rng.normal(0, 0.8, len(dates))
-
-    df = pd.DataFrame({
-        "Gold": gold,
-        "Silver": silver,
-        "Fed": rng.uniform(0, 5, len(dates)),
-        "Inflation": rng.uniform(1, 5, len(dates)),
-        "US10Y": rng.uniform(1, 5, len(dates)),
-        "DXY": rng.uniform(90, 110, len(dates)),
-        "VIX": rng.uniform(10, 30, len(dates)),
-        "FSI": rng.uniform(-1, 1, len(dates)),
-        "Spread": rng.uniform(0, 2, len(dates)),
-        "RealYield": rng.uniform(-1, 3, len(dates)),
-        "USDINR": rng.uniform(60, 90, len(dates))
-    }, index=dates)
-
-    df["Gold_Return"] = df["Gold"].pct_change()
-    df["Silver_Return"] = df["Silver"].pct_change()
-
-    return df.dropna()
-
-
-# ===============================
-# INITIALIZE MODEL
+# LOAD AND TRAIN
 # ===============================
 def initialize_model():
     global data, scaler, gmm, crisis_regime
     global model_gold_normal, model_gold_crisis
     global model_silver_normal, model_silver_crisis
-    global data_source, startup_error
 
-    try:
-        print("📥 Loading external dataset...")
-        loaded = create_dataset()
+    print("📥 Loading external dataset...")
+    loaded = create_dataset()
+    loaded.index = pd.to_datetime(loaded.index)
+    loaded = loaded.sort_index()
 
-        loaded.index = pd.to_datetime(loaded.index)
-        loaded = loaded.sort_index()
+    print("Rows after create_dataset():", len(loaded))
+    print("Columns found:", list(loaded.columns))
 
-        required_cols = features + [target_gold, target_silver]
+    required_cols = features + [target_gold, target_silver]
+    missing_cols = [col for col in required_cols if col not in loaded.columns]
+    if missing_cols:
+        raise ValueError(f"Missing required columns in dataset: {missing_cols}")
 
-        loaded = loaded.dropna(subset=required_cols)
+    loaded = loaded.dropna(subset=required_cols)
+    print("Rows after dropna on required columns:", len(loaded))
 
-        if loaded.empty:
-            raise ValueError("Dataset empty")
+    if loaded.empty:
+        raise ValueError("REAL DATA FAILED: Dataset is empty after cleaning. External series may have failed to download.")
 
-        data_local = loaded
-        data_source = "real"
-        startup_error = None
+    data_local, scaler_local, gmm_local = detect_regimes(loaded, regime_vars)
+    print("Rows after detect_regimes():", len(data_local))
 
-        print(f"✅ Real dataset loaded ({len(data_local)} rows)")
+    train = data_local[data_local.index.year <= 2020].copy()
+    print("Training rows up to 2020:", len(train))
 
-    except Exception as e:
-        print("⚠️ DATA LOAD FAILED:", str(e))
-        data_local = build_fallback_dataset()
-        data_source = "fallback"
-        startup_error = str(e)
+    if train.empty:
+        print("⚠️ Training set up to 2020 is empty. Using full dataset for training.")
+        train = data_local.copy()
 
-    data_local, scaler_local, gmm_local = detect_regimes(data_local, regime_vars)
+    if train.empty:
+        raise ValueError("REAL DATA FAILED: No training data available.")
 
-    train = data_local.copy()
+    if 'Regime' not in train.columns:
+        raise ValueError("REAL DATA FAILED: Regime column not found after detect_regimes().")
 
     crisis_regime_local = train.groupby('Regime')['VIX'].mean().idxmax()
 
-    # GOLD MODELS
+    # Gold models
     mg_normal = GradientBoostingRegressor(random_state=42)
     mg_normal.fit(train[features], train[target_gold])
 
-    mg_crisis = GradientBoostingRegressor(random_state=42)
-    mg_crisis.fit(train[features], train[target_gold])
+    crisis_train = train[train['Regime'] == crisis_regime_local].copy()
+    if crisis_train.empty:
+        print("⚠️ Crisis regime subset is empty for gold. Using full training set.")
+        crisis_train = train.copy()
 
-    # SILVER MODELS
+    mg_crisis = GradientBoostingRegressor(random_state=42)
+    mg_crisis.fit(crisis_train[features], crisis_train[target_gold])
+
+    # Silver models
     ms_normal = GradientBoostingRegressor(random_state=42)
     ms_normal.fit(train[features], train[target_silver])
 
+    crisis_train_silver = train[train['Regime'] == crisis_regime_local].copy()
+    if crisis_train_silver.empty:
+        print("⚠️ Crisis regime subset is empty for silver. Using full training set.")
+        crisis_train_silver = train.copy()
+
     ms_crisis = GradientBoostingRegressor(random_state=42)
-    ms_crisis.fit(train[features], train[target_silver])
+    ms_crisis.fit(crisis_train_silver[features], crisis_train_silver[target_silver])
 
     data = data_local
     scaler = scaler_local
     gmm = gmm_local
     crisis_regime = crisis_regime_local
-
     model_gold_normal = mg_normal
     model_gold_crisis = mg_crisis
     model_silver_normal = ms_normal
     model_silver_crisis = ms_crisis
 
     print("✅ Models Ready")
-    print(f"📊 Data source: {data_source}")
 
 
 initialize_model()
@@ -142,15 +119,15 @@ initialize_model()
 # ===============================
 def generate_scenario(last_usdinr):
     return {
-        'Fed': float(np.random.uniform(0, 5)),
-        'Inflation': float(np.random.uniform(1, 5)),
-        'US10Y': float(np.random.uniform(1, 5)),
-        'DXY': float(np.random.uniform(90, 110)),
-        'VIX': float(np.random.uniform(10, 30)),
-        'FSI': float(np.random.uniform(-1, 1)),
-        'Spread': float(np.random.uniform(0, 2)),
-        'RealYield': float(np.random.uniform(-1, 3)),
-        'USDINR': float(last_usdinr * (1 + np.random.normal(0, 0.01)))
+        'Fed': float(np.clip(np.random.normal(2.0, 1.0), 0, 10)),
+        'Inflation': float(np.clip(np.random.normal(3.0, 1.0), 0.5, 12)),
+        'US10Y': float(np.clip(np.random.normal(3.0, 1.0), 0.1, 8)),
+        'DXY': float(np.clip(np.random.normal(100, 5), 80, 120)),
+        'VIX': float(np.clip(np.random.normal(20, 5), 9, 80)),
+        'FSI': float(np.clip(np.random.normal(0.5, 0.5), -2, 3)),
+        'Spread': float(np.clip(np.random.normal(1.0, 0.5), -1, 5)),
+        'RealYield': float(np.clip(np.random.normal(1.0, 1.0), -3, 5)),
+        'USDINR': float(np.clip(last_usdinr * (1 + np.random.normal(0, 0.01)), 50, 120))
     }
 
 
@@ -165,42 +142,97 @@ def home():
 @app.route('/health')
 def health():
     return jsonify({
-        "data_source": data_source,
-        "error": startup_error,
-        "rows": len(data),
-        "gold_now": float(data['Gold'].iloc[-1]),
-        "silver_now": float(data['Silver'].iloc[-1]),
-        "usdinr": float(data['USDINR'].iloc[-1])
+        "status": "ok",
+        "rows": int(len(data)) if data is not None else 0,
+        "latest_date": str(data.index[-1].date()) if data is not None and len(data) > 0 else None,
+        "latest_gold": float(data['Gold'].iloc[-1]) if data is not None and len(data) > 0 else None,
+        "latest_silver": float(data['Silver'].iloc[-1]) if data is not None and len(data) > 0 else None,
+        "latest_usdinr": float(data['USDINR'].iloc[-1]) if data is not None and len(data) > 0 else None
     })
 
 
 @app.route('/forecast', methods=['POST'])
 def forecast():
-    n_months = int(request.json.get("months", 6))
-    n_sim = 200
+    try:
+        req = request.get_json(silent=True) or {}
+        n_months = max(1, min(int(req.get("months", 6)), 36))
+        n_simulations = 300
 
-    last_gold = data['Gold'].iloc[-1]
-    last_silver = data['Silver'].iloc[-1]
-    last_usdinr = data['USDINR'].iloc[-1]
+        mc_gold = np.zeros((n_months, n_simulations))
+        mc_silver = np.zeros((n_months, n_simulations))
+        mc_usdinr = np.zeros((n_months, n_simulations))
 
-    results = []
+        last_gold = float(data['Gold'].iloc[-1])
+        last_silver = float(data['Silver'].iloc[-1])
+        last_usdinr = float(data['USDINR'].iloc[-1])
 
-    for t in range(n_months):
-        scenario = generate_scenario(last_usdinr)
+        for sim in range(n_simulations):
+            g = last_gold
+            s = last_silver
+            usdinr = last_usdinr
 
-        gold = last_gold * (1 + np.random.normal(0.02, 0.05))
-        silver = last_silver * (1 + np.random.normal(0.02, 0.05))
+            for t in range(n_months):
+                scenario = generate_scenario(usdinr)
+                usdinr = scenario['USDINR']
 
-        results.append({
-            "date": str(pd.Timestamp.today() + pd.DateOffset(months=t)),
-            "gold_now": float(last_gold),
-            "silver_now": float(last_silver),
-            "gold_usd": float(gold),
-            "silver_usd": float(silver),
-            "usdinr": float(scenario['USDINR'])
-        })
+                row = pd.DataFrame([{f: scenario[f] for f in features}])
 
-    return jsonify(results)
+                regime_input = pd.DataFrame(
+                    [[scenario[v] for v in regime_vars]],
+                    columns=regime_vars
+                )
+
+                regime = gmm.predict(scaler.transform(regime_input))[0]
+
+                if regime == crisis_regime:
+                    g_ret = model_gold_crisis.predict(row[features])[0]
+                    s_ret = model_silver_crisis.predict(row[features])[0]
+                else:
+                    g_ret = model_gold_normal.predict(row[features])[0]
+                    s_ret = model_silver_normal.predict(row[features])[0]
+
+                g *= (1 + g_ret)
+                s *= (1 + s_ret)
+
+                mc_gold[t, sim] = g
+                mc_silver[t, sim] = s
+                mc_usdinr[t, sim] = usdinr
+
+        gold_mean = mc_gold.mean(axis=1)
+        silver_mean = mc_silver.mean(axis=1)
+        usdinr_mean = mc_usdinr.mean(axis=1)
+
+        gold_p10 = np.percentile(mc_gold, 10, axis=1)
+        gold_p90 = np.percentile(mc_gold, 90, axis=1)
+        silver_p10 = np.percentile(mc_silver, 10, axis=1)
+        silver_p90 = np.percentile(mc_silver, 90, axis=1)
+
+        dates = pd.date_range(
+            start=data.index[-1] + pd.offsets.MonthEnd(1),
+            periods=n_months,
+            freq='ME'
+        )
+
+        result = []
+        for i in range(n_months):
+            result.append({
+                "date": str(dates[i]),
+                "gold_now": float(last_gold),
+                "silver_now": float(last_silver),
+                "gold_usd": float(gold_mean[i]),
+                "gold_usd_p10": float(gold_p10[i]),
+                "gold_usd_p90": float(gold_p90[i]),
+                "silver_usd": float(silver_mean[i]),
+                "silver_usd_p10": float(silver_p10[i]),
+                "silver_usd_p90": float(silver_p90[i]),
+                "usdinr": float(usdinr_mean[i])
+            })
+
+        return jsonify(result)
+
+    except Exception as e:
+        print("❌ Forecast route failed:", str(e))
+        return jsonify({"error": str(e)}), 500
 
 
 # ===============================
