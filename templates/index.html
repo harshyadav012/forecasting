@@ -473,9 +473,9 @@ body{
       <button class="quick-btn" onclick="setMonths(3)">3 mo</button>
       <button class="quick-btn" onclick="setMonths(6)">6 mo</button>
       <button class="quick-btn" onclick="setMonths(12)">12 mo</button>
-      <button class="quick-btn" onclick="setMonths(24)">24 mo</button>
+      <button class="quick-btn" onclick="setMonths(24)">18 mo</button>
     </div>
-    <p class="input-hint">Enter 1 – 36 months · Press Enter or click Forecast</p>
+    <p class="input-hint">Enter 1 – 18 months · Press Enter or click Forecast</p>
     <p class="error-msg" id="err-msg"></p>
   </div>
 </div>
@@ -772,8 +772,8 @@ function startForecast(){
   const raw = document.getElementById('month-input').value.trim();
   const n = parseInt(raw, 10);
 
-  if(!raw || isNaN(n) || n < 1 || n > 36){
-    document.getElementById('err-msg').textContent = 'Please enter a number between 1 and 36.';
+  if(!raw || isNaN(n) || n < 1 || n > 18){
+    document.getElementById('err-msg').textContent = 'Please enter a number between 1 and 18.';
     return;
   }
 
