@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, send_from_directory
 from flask_cors import CORS
 import numpy as np
 import pandas as pd
@@ -6,14 +6,13 @@ from sklearn.ensemble import GradientBoostingRegressor
 
 from Data_set_creation import create_dataset
 from regime_detection import detect_regimes
-from flask import send_from_directory
 
+
+app = Flask(__name__)
+CORS(app)
 @app.route('/sitemap.xml')
 def sitemap():
     return send_from_directory('static', 'sitemap.xml')
-app = Flask(__name__)
-CORS(app)
-
 print("🚀 Initializing Model...")
 
 # ===============================
