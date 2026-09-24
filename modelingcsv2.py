@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import shap
 from sklearn.ensemble import GradientBoostingRegressor
 
 from Data_set_creation import create_dataset
@@ -50,6 +51,48 @@ model_crisis.fit(crisis_train[features], crisis_train[target_gold])
 
 model_silver = GradientBoostingRegressor(random_state=42)
 model_silver.fit(train[features], train[target_silver])
+
+# ===============================
+# 4️⃣ SHAP EXPLANATIONS
+# ===============================
+X_test_normal = test[features]
+X_test_crisis = test[test['Regime'] == crisis_regime][features]
+
+if X_test_normal.empty:
+    raise ValueError("SHAP explanations require at least one normal test row.")
+if X_test_crisis.empty:
+    raise ValueError("SHAP explanations require at least one crisis test row.")
+
+explainer_normal = shap.TreeExplainer(model_normal)
+shap_values_normal = explainer_normal(X_test_normal)
+shap.summary_plot(shap_values_normal, X_test_normal, show=False)
+plt.savefig('shap_summary_normal.png', dpi=150, bbox_inches='tight')
+plt.close()
+
+explainer_crisis = shap.TreeExplainer(model_crisis)
+shap_values_crisis = explainer_crisis(X_test_crisis)
+shap.summary_plot(shap_values_crisis, X_test_crisis, show=False)
+plt.savefig('shap_summary_crisis.png', dpi=150, bbox_inches='tight')
+plt.close()
+
+importance_normal = pd.Series(
+    np.abs(shap_values_normal.values).mean(axis=0), index=features
+).sort_values(ascending=False)
+
+importance_crisis = pd.Series(
+    np.abs(shap_values_crisis.values).mean(axis=0), index=features
+).sort_values(ascending=False)
+
+shap_table = pd.DataFrame({
+    'Normal': importance_normal,
+    'Crisis': importance_crisis
+})
+shap_table['Delta'] = shap_table['Crisis'] - shap_table['Normal']
+shap_table = shap_table.sort_values('Crisis', ascending=False)
+
+print("\n📊 SHAP MEAN ABSOLUTE IMPORTANCE:")
+print(shap_table.round(6))
+shap_table.to_csv("shap_importance_table.csv")
 
 # ===============================
 # 5️⃣ SCENARIO GENERATOR
